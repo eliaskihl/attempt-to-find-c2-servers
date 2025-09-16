@@ -84,15 +84,36 @@
 <body>
     <h2>Enter Text and Upload CSV</h2>
     <form method="POST" enctype="multipart/form-data">
-        <label for="user_string" style="color: white;">Enter VirusTotal API Key:</label><br>
-        <input type="text" id="user_string" name="user_string" required><br>
+    <label for="user_string" style="color: white;">Enter VirusTotal API Key:</label><br>
+    <input type="text" id="user_string" name="user_string" required><br>
 
-        <label for="csv_file" style="color: white;">Upload CSV file:</label><br>
-       <input type="file" 
-       style="color: white; border: 1px solid white; background-color: transparent; padding: 5px;" 
-       id="csv_file" name="csv_file" accept=".csv" required><br>
+    <label for="csv_file" style="color: white;">Upload CSV file:</label><br>
+    <input type="file" 
+           style="color: white; border: 1px solid white; background-color: transparent; padding: 5px;" 
+           id="csv_file" name="csv_file" accept=".csv"><br>
 
-        <input type="submit" value="Submit">
+    <input type="submit" value="Submit">
     </form>
+
+    <br>
+    <!-- New button for live traffic -->
+    <a href="/live_monitor"><button>Start Live Traffic Monitoring</button></a>
+
+    
+
+    <!-- Display live events -->
+    <div id="monitor"></div>
+
+    <script>
+    document.getElementById('start-monitor').addEventListener('click', function() {
+        var source = new EventSource('/live_monitor');
+        source.onmessage = function(e) {
+            var monitorDiv = document.getElementById('monitor');
+            monitorDiv.innerHTML += e.data + "<br>";
+        };
+    });
+    </script>
+
+
 </body>
 </html>
