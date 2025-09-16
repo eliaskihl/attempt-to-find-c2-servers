@@ -3,12 +3,75 @@ import requests
 import time
 import os
 from flask import Flask, request, render_template, redirect, url_for
-
+import threading
+import pyshark
+from collections import deque
 
 # Output file for results
 OUTPUT_FILE = "vt_results.csv"
 
+def check_ip_virustotal(ip,vt_api_key):
+    """Query VirusTotal for an IP address reputation"""
+    url = f"https://www.virustotal.com/api/v3/ip_addresses/{ip}"
+    headers = {"x-apikey": vt_api_key}
+    try:
+        resp = requests.get(url, headers=headers)
+        if resp.status_code == 200:
+            data = resp.json()
+            # Count how many engines flagged it as malicious or suspicious
+            malicious = data["data"]["attributes"]["last_analysis_stats"].get("malicious", 0)
+            suspicious = data["data"]["attributes"]["last_analysis_stats"].get("suspicious", 0)
+            return malicious, suspicious
+        else:
+            print(f"[-] Error {resp.status_code} for IP {ip}")
+            return None, None
+    except Exception as e:
+        print(f"[-] Exception for IP {ip}: {e}")
+        return None, None
+def real_time_capture(api_key):
+    checked = set()
 
+    ip_queue = deque()       # Queue for IPs to process
+    API_CALL_INTERVAL = 60 / 4  # 4 requests per minute
+    last_call = 0
+
+    cap = pyshark.LiveCapture(interface='Ethernet')  
+    for packet in cap.sniff_continuously():
+        src_malicious, src_suspicious = 0, 0
+        dst_malicious, dst_suspicious = 0, 0
+        if 'IP' in packet:
+            src_ip = packet.ip.src
+            dst_ip = packet.ip.dst
+            print(f"Source: {src_ip} -> Destination: {dst_ip}")
+
+
+            if src_ip not in checked:
+               
+                ip_queue.append(src_ip)
+                checked.add(src_ip)
+               
+
+            elif dst_ip not in checked:
+                
+                ip_queue.append(dst_ip)
+                checked.add(dst_ip)
+            
+            # Queue IP addresses because of VirusTotal rate limiting
+            while ip_queue:
+                ip = ip_queue.popleft()
+                now = time.time()
+                elapsed = now - last_call
+                if elapsed < API_CALL_INTERVAL:
+                    time.sleep(API_CALL_INTERVAL - elapsed)
+
+                mal,sus = check_ip_virustotal(api_key, ip)
+                print(f"IP: {ip} → malicious={mal}, suspicious={sus}")
+                last_call = time.time()
+                
+            
+
+real_time_capture("APIKEY_HERE")
+exit(0)
 
 
 
@@ -34,24 +97,7 @@ def run_vt_check(api_key,csv_file):
     results_df.to_csv(OUTPUT_FILE, index=False)
     print(f"[+] Done. Results saved to {OUTPUT_FILE}")
 
-def check_ip_virustotal(ip,vt_api_key):
-    """Query VirusTotal for an IP address reputation"""
-    url = f"https://www.virustotal.com/api/v3/ip_addresses/{ip}"
-    headers = {"x-apikey": vt_api_key}
-    try:
-        resp = requests.get(url, headers=headers)
-        if resp.status_code == 200:
-            data = resp.json()
-            # Count how many engines flagged it as malicious or suspicious
-            malicious = data["data"]["attributes"]["last_analysis_stats"].get("malicious", 0)
-            suspicious = data["data"]["attributes"]["last_analysis_stats"].get("suspicious", 0)
-            return malicious, suspicious
-        else:
-            print(f"[-] Error {resp.status_code} for IP {ip}")
-            return None, None
-    except Exception as e:
-        print(f"[-] Exception for IP {ip}: {e}")
-        return None, None
+
 
 
 
@@ -115,24 +161,12 @@ def index():
 
 if __name__ == "__main__":
     app.run(debug=True)
-# def main():
-#     print("Choose option:")
-#     print("1. Run VirusTotal IP reputation check")
-#     print("2. Print output file contents")
-#     print("q. Quit")
-#     choice = input("Enter choice: ")
-
-#     match choice:
-#         case "1": 
-#             print("Enter your VirusTotal API key:")
-#             api_key = input().strip()
-#             run_vt_check(api_key)
-#         case "2":
-#             print_output_file()
-#         case "q":
-#             print("Exiting...")
-#             exit(0)
-#         case _:
-#             print("Invalid choice")
 
 
+    
+
+
+
+
+
+    
