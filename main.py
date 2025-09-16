@@ -202,7 +202,10 @@ def live_monitor():
                         time.sleep(API_CALL_INTERVAL - elapsed)
 
                     mal,sus = check_ip_virustotal(ip, api_key)
-                    yield f"IP: {ip} → malicious={mal}, suspicious={sus} \n\n"
+                    if mal is not None:
+                        yield f"data: IP: {ip} → malicious={mal}, suspicious={sus} ------ ALERT ------- \n\n"
+                    else:
+                        yield f"IP: {ip} → malicious={mal}, suspicious={sus} \n\n"
                     last_call = time.time()
       
     return Response(generate(), mimetype='text/event-stream')
